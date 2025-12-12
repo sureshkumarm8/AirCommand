@@ -1,10 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, FunctionDeclaration, Type, Modality, LiveServerMessage } from '@google/genai';
-import { IOSDevice, LogEntry, ScriptCommand, CommandDescriptions } from './types';
+import { IOSDevice, LogEntry, ScriptCommand } from './types';
 import { Terminal } from './components/Terminal';
 import { DeviceCard } from './components/DeviceCard';
-import { Mic, MicOff, Command, Wifi, Settings, Terminal as TerminalIcon, Sparkles, Activity } from 'lucide-react';
+import { Mic, MicOff, Command, Settings, Sparkles, Activity, FileText, RefreshCw, Save } from 'lucide-react';
 import { createBlob, decodeAudioData, base64ToUint8Array } from './services/audioUtils';
+
+// --- Default Configuration from device.conf ---
+const DEFAULT_CONFIG = `# name,udid,host
+#IvantiCorpWIfi
+#iphone16p,00140-01801C,10.49.119.34
+#iphone17,0050-0010588401C,10.49.118.111
+#ipad,002-000A24801C,10.49.119.65
+
+#XioamiWifi
+iphone16p,00000-001C01C,10.139.233.204
+iphone17,00-0010501C,10.139.233.136
+ipad,00032-000A2B801C,10.139.233.66`;
 
 // --- Tool Definitions ---
 const executeScriptTool: FunctionDeclaration = {
@@ -25,7 +37,7 @@ const executeScriptTool: FunctionDeclaration = {
       targetDevices: {
         type: Type.ARRAY,
         items: { type: Type.STRING },
-        description: 'Array of Device IDs to target. Returns "all" if the user implies all connected devices.'
+        description: 'Array of Device UDIDs (IDs) to target. Returns "all" if the user implies all connected devices.'
       }
     },
     required: ['action', 'targetDevices']
@@ -34,16 +46,11 @@ const executeScriptTool: FunctionDeclaration = {
 
 const TOOLS = [executeScriptTool];
 
-// --- Initial Mock Data ---
-const INITIAL_DEVICES: IOSDevice[] = [
-  { id: 'dev_1', name: 'iPhone 15 Pro', model: 'iPhone16,1', osVersion: 'iOS 17.4', ip: '192.168.1.101', status: 'connected', batteryLevel: 82, currentApp: 'SpringBoard' },
-  { id: 'dev_2', name: 'iPad Air 5', model: 'iPad13,16', osVersion: 'iPadOS 17.3', ip: '192.168.1.105', status: 'connected', batteryLevel: 45, currentApp: 'com.apple.safari' },
-  { id: 'dev_3', name: 'iPhone 12 Mini', model: 'iPhone13,1', osVersion: 'iOS 16.6', ip: '192.168.1.112', status: 'offline', batteryLevel: 0, currentApp: 'Unknown' },
-];
-
 export default function App() {
   // --- State ---
-  const [devices, setDevices] = useState<IOSDevice[]>(INITIAL_DEVICES);
+  const [configContent, setConfigContent] = useState(DEFAULT_CONFIG);
+  const [showConfig, setShowConfig] = useState(false);
+  const [devices, setDevices] = useState<IOSDevice[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
@@ -60,13 +67,6 @@ export default function App() {
   // --- Gemini Refs ---
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
 
-  // --- Initialization ---
-  useEffect(() => {
-    const key = process.env.API_KEY || '';
-    setApiKey(key);
-    addLog('System', 'iOS AirCommand Dashboard Initialized.', 'info');
-  }, []);
-
   // --- Helper Functions ---
   const addLog = useCallback((source: LogEntry['source'], message: string, type: LogEntry['type'] = 'info') => {
     setLogs(prev => [...prev, {
@@ -78,10 +78,67 @@ export default function App() {
     }]);
   }, []);
 
+  // --- Config Parsing ---
+  const parseConfig = useCallback((content: string) => {
+    try {
+      const lines = content.split('\n');
+      const parsedDevices: IOSDevice[] = [];
+      
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return;
+
+        // Format: name,udid,host
+        const parts = trimmed.split(',').map(s => s.trim());
+        if (parts.length >= 3) {
+          const [name, udid, host] = parts;
+          
+          // Determine Model/OS based on name for display (heuristic)
+          let model = 'Unknown Device';
+          let os = 'iOS 17.0';
+          
+          if (name.toLowerCase().includes('iphone')) {
+             if (name.includes('16')) model = 'iPhone 15 Pro'; // Mapping 16p -> 15 Pro (Simulated)
+             else if (name.includes('17')) model = 'iPhone 16 Pro Max';
+             else model = 'iPhone';
+          } else if (name.toLowerCase().includes('ipad')) {
+             model = 'iPad Air';
+             os = 'iPadOS 17.0';
+          }
+
+          parsedDevices.push({
+            id: udid,
+            name: name,
+            model: model,
+            osVersion: os,
+            ip: host,
+            status: 'connected', // Assume connected if in config for this demo
+            batteryLevel: Math.floor(Math.random() * 40) + 60, // Random battery 60-100
+            currentApp: 'SpringBoard'
+          });
+        }
+      });
+
+      setDevices(parsedDevices);
+      addLog('System', `Configuration loaded. ${parsedDevices.length} devices found.`, 'success');
+    } catch (e) {
+      addLog('System', 'Failed to parse configuration file.', 'error');
+    }
+  }, [addLog]);
+
+  // --- Initialization ---
+  useEffect(() => {
+    const key = process.env.API_KEY || '';
+    setApiKey(key);
+    parseConfig(configContent);
+    addLog('System', 'iOS AirCommand Dashboard Initialized.', 'info');
+  }, []);
+
   // --- Script Execution Logic (Simulation) ---
   const handleScriptExecution = async (action: ScriptCommand, argument: string | undefined, targetDevices: string[]): Promise<string> => {
     const isAll = targetDevices.includes('all');
     
+    // Filter devices based on UDID (id)
     const targets = isAll 
       ? devices.filter(d => d.status !== 'offline') 
       : devices.filter(d => targetDevices.includes(d.id) && d.status !== 'offline');
@@ -94,6 +151,7 @@ export default function App() {
     const deviceNames = targets.map(d => d.name).join(', ');
     addLog('System', `Executing: ./connect_ios_wireless.sh ${action} ${argument || ''} on [${deviceNames}]`, 'command');
 
+    // Set busy state
     setDevices(prev => prev.map(d => {
       if (targets.find(t => t.id === d.id)) {
         return { ...d, status: 'busy' }; 
@@ -101,8 +159,10 @@ export default function App() {
       return d;
     }));
 
+    // Simulate Network/Script Delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
+    // Update state based on command
     setDevices(prev => prev.map(d => {
       if (targets.find(t => t.id === d.id)) {
         let updates: Partial<IOSDevice> = { status: 'connected' };
@@ -114,7 +174,7 @@ export default function App() {
           case ScriptCommand.HOME: updates.currentApp = 'SpringBoard'; break;
           case ScriptCommand.RESTART: updates.status = 'offline'; break;
           case ScriptCommand.SCREENSHOT: updates.lastScreenshot = `https://picsum.photos/seed/${Math.random()}/360/640`; break;
-          case ScriptCommand.TEXT: addLog('System', `Typed "${argument}" on ${d.name}`, 'success'); break;
+          case ScriptCommand.TEXT: addLog('System', `Typed text on ${d.name}`, 'success'); break;
         }
         return { ...d, ...updates };
       }
@@ -175,12 +235,18 @@ export default function App() {
         config: {
           responseModalities: [Modality.AUDIO],
           tools: [{ functionDeclarations: TOOLS }],
-          systemInstruction: `You are an advanced iOS Device Management AI. You control devices using the 'execute_ios_script' tool. 
-          Available devices are: ${devices.map(d => `${d.name} (ID: ${d.id})`).join(', ')}. 
+          systemInstruction: `You are an advanced iOS Device Management AI utilizing the 'connect_ios_wireless.sh' script protocol.
           
-          When a user asks to perform an action (like open url, launch app, restart, etc.), ALWAYS use the tool. 
-          If the user says "all phones" or "all devices", pass "all" in the targetDevices array.
-          Confirm actions verbally briefly. Be cool, cybernetic, and efficient.`
+          Current Device Inventory (parsed from device.conf):
+          ${devices.map(d => `- Name: ${d.name}, UDID: ${d.id}, IP: ${d.ip}`).join('\n')}
+          
+          When a user asks to perform an action (like open url, launch app, restart, screenshot, etc.), use the 'execute_ios_script' tool.
+          
+          Multi-Device Handling:
+          - If the user says "all phones", "everyone", or "all devices", pass ["all"] as targetDevices.
+          - If the user specifies devices (e.g., "on the ipad" or "on iphone16p"), map them to their UDIDs and pass the array of UDIDs.
+          
+          Confirm actions verbally with a cool, cybernetic tone.`
         },
         callbacks: {
           onopen: () => {
@@ -258,48 +324,65 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen text-slate-200">
+    <div className="flex h-screen w-screen text-slate-200 overflow-hidden bg-[#020617] relative selection:bg-cyan-500/30">
+      
+      {/* Background Ambience */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px]"></div>
+      </div>
+
       {/* Sidebar: Glassmorphism */}
-      <div className="glass w-80 flex flex-col z-20 border-r-0 border-white/10 m-4 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="p-5 border-b border-white/5 flex items-center gap-3 bg-gradient-to-r from-slate-900/50 to-transparent">
+      <div className="glass w-80 flex flex-col z-20 border-r border-white/5 m-4 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl bg-slate-900/40 transition-all duration-300">
+        <div className="p-5 border-b border-white/5 flex items-center gap-3 bg-gradient-to-r from-slate-900/80 to-transparent">
            <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-2 rounded-lg shadow-lg shadow-cyan-500/20">
               <Command className="text-white" size={20} />
            </div>
            <div>
               <h1 className="font-bold text-lg tracking-tight text-white leading-tight">AirCommand</h1>
-              <span className="text-[10px] text-cyan-400 font-mono tracking-widest uppercase">Protocol v2.0</span>
+              <span className="text-[10px] text-cyan-400 font-mono tracking-widest uppercase opacity-80">Protocol v2.4</span>
            </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="flex justify-between items-center text-[11px] text-slate-400 uppercase font-bold tracking-widest mb-2 px-1">
-                <span>Active Targets</span>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+            <div className="flex justify-between items-center text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-2 px-1">
+                <span>Network Devices</span>
                 <span className="bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                   {devices.filter(d => d.status !== 'offline').length} Online
+                   {devices.length} Loaded
                 </span>
             </div>
+            
+            {devices.length === 0 && (
+                <div className="text-center py-10 text-slate-600">
+                    <p className="text-xs">No devices found in config.</p>
+                </div>
+            )}
+
             {devices.map(device => (
                 <DeviceCard key={device.id} device={device} />
             ))}
         </div>
 
-        <div className="p-4 bg-gradient-to-t from-slate-900/80 to-transparent border-t border-white/5">
-             <button className="w-full py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-all border border-white/5 hover:border-white/20 text-slate-300">
-                <Settings size={14} /> System Preferences
+        <div className="p-4 bg-gradient-to-t from-slate-900/80 to-transparent border-t border-white/5 space-y-2">
+             <button 
+                onClick={() => setShowConfig(!showConfig)}
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all border border-white/5 hover:border-white/20 text-slate-300 hover:text-white"
+             >
+                <FileText size={14} /> 
+                {showConfig ? 'Hide Config' : 'Edit device.conf'}
              </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col py-4 pr-4 gap-4 h-full relative">
+      <div className="flex-1 flex flex-col py-4 pr-4 gap-4 h-full relative z-10 min-w-0">
         
-        {/* Header Section with Glass Effect */}
-        <div className="glass rounded-2xl p-6 flex justify-between items-center shadow-lg relative overflow-hidden">
-            {/* Ambient Background Glow in Header */}
+        {/* Header Section */}
+        <div className="glass rounded-2xl p-6 flex justify-between items-center shadow-lg relative overflow-hidden bg-slate-900/30">
             <div className="absolute -top-20 -left-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
             <div className="relative z-10">
-                <h2 className="text-3xl font-bold text-white mb-1 tracking-tight">
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-1 tracking-tight">
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">Command Center</span>
                 </h2>
                 <div className="flex items-center gap-2 text-slate-400 text-sm">
@@ -329,25 +412,44 @@ export default function App() {
                 >
                     {isConnected && <span className="absolute inset-0 rounded-xl animate-pulse-ring border-rose-500"></span>}
                     {isConnected ? <MicOff size={20} /> : <Mic size={20} />}
-                    {isConnected ? 'Terminate Link' : 'Initialize Voice'}
+                    <span className="hidden md:inline">{isConnected ? 'Terminate Link' : 'Initialize Voice'}</span>
                 </button>
             </div>
         </div>
         
-        {/* Terminal Area */}
+        {/* Main Workspace: Config Editor or Terminal */}
         <div className="flex-1 min-h-0 relative z-10">
-             <Terminal logs={logs} />
+            {showConfig ? (
+                <div className="h-full flex flex-col glass rounded-xl overflow-hidden bg-[#0d1117] border border-white/10">
+                    <div className="flex justify-between items-center p-3 border-b border-white/10 bg-[#161b22]">
+                        <span className="text-xs font-mono text-slate-400 flex items-center gap-2">
+                             <FileText size={14} className="text-cyan-500"/> device.conf
+                        </span>
+                        <button onClick={() => parseConfig(configContent)} className="text-xs flex items-center gap-1 text-emerald-400 hover:text-emerald-300">
+                            <Save size={12} /> Apply Changes
+                        </button>
+                    </div>
+                    <textarea 
+                        value={configContent}
+                        onChange={(e) => setConfigContent(e.target.value)}
+                        className="flex-1 w-full bg-[#0d1117] text-slate-300 font-mono text-sm p-4 resize-none focus:outline-none"
+                        spellCheck={false}
+                    />
+                </div>
+            ) : (
+                <Terminal logs={logs} />
+            )}
         </div>
 
         {/* Action Bar / Quick Commands */}
-        <div className="glass h-auto min-h-[120px] rounded-2xl p-5 flex flex-col justify-center gap-3">
-            <div className="flex items-center gap-2 text-slate-400 text-[11px] uppercase tracking-widest font-bold">
+        <div className="glass h-auto min-h-[100px] rounded-2xl p-5 flex flex-col justify-center gap-3 bg-slate-900/30">
+            <div className="flex items-center gap-2 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
                 <Sparkles size={12} className="text-amber-400" />
-                Available Actions
+                Quick Actions (All Devices)
             </div>
             <div className="flex flex-wrap gap-2">
-                {Object.values(ScriptCommand).map(cmd => (
-                    <button key={cmd} className="px-3 py-1.5 bg-slate-800/50 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 rounded-lg text-xs border border-white/5 hover:border-cyan-500/30 transition-all font-mono">
+                {Object.values(ScriptCommand).slice(0, 8).map(cmd => (
+                    <button key={cmd} onClick={() => handleScriptExecution(cmd, undefined, ['all'])} className="px-3 py-1.5 bg-slate-800/50 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 rounded-lg text-xs border border-white/5 hover:border-cyan-500/30 transition-all font-mono">
                         ./script {cmd}
                     </button>
                 ))}

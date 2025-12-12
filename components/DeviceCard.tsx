@@ -1,6 +1,6 @@
 import React from 'react';
 import { IOSDevice } from '../types';
-import { Smartphone, Battery, Signal, Wifi, AppWindow, Cpu } from 'lucide-react';
+import { Smartphone, Battery, Signal, Wifi, AppWindow, Hash } from 'lucide-react';
 
 interface DeviceCardProps {
   device: IOSDevice;
@@ -27,7 +27,7 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
 
       <div className="relative z-10 p-4">
         {/* Header */}
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
             <div className={`
                 p-2.5 rounded-xl shadow-inner flex items-center justify-center
@@ -35,17 +35,15 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
             `}>
               <Smartphone size={18} />
             </div>
-            <div>
-              <h3 className="font-semibold text-sm text-white tracking-wide leading-tight">{device.name}</h3>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-sm text-white tracking-wide leading-tight truncate w-32" title={device.name}>{device.name}</h3>
               <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-1">
                 <span>{device.model}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-600 inline-block"></span>
-                <span>{device.osVersion}</span>
               </div>
             </div>
           </div>
           
-          {/* Status Dot with Ping Animation */}
+          {/* Status Dot */}
           <div className="flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               {isOnline && (
@@ -59,6 +57,14 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
               }`}></span>
             </span>
           </div>
+        </div>
+
+        {/* UDID Display (New) */}
+        <div className="bg-black/40 rounded px-2 py-1 mb-3 border border-white/5 flex items-center gap-2">
+            <Hash size={10} className="text-slate-500" />
+            <span className="text-[10px] font-mono text-slate-400 truncate w-full" title={device.id}>
+                {device.id}
+            </span>
         </div>
 
         {/* Screen Preview */}
