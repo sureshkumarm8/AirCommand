@@ -45,12 +45,19 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
             </div>
           </div>
           
-          {/* Status Dot */}
+          {/* Status Dot with Ping Animation */}
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${
-                device.status === 'connected' ? 'bg-emerald-500 text-emerald-500' :
-                device.status === 'busy' ? 'bg-amber-500 text-amber-500' : 'bg-rose-500 text-rose-500'
-            }`}></div>
+            <span className="relative flex h-2.5 w-2.5">
+              {isOnline && (
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                   device.status === 'connected' ? 'bg-emerald-400' : 'bg-amber-400'
+                }`}></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                  device.status === 'connected' ? 'bg-emerald-500' :
+                  device.status === 'busy' ? 'bg-amber-500' : 'bg-rose-500'
+              }`}></span>
+            </span>
           </div>
         </div>
 
