@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iOS AirCommand AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+      :root {
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-bg: rgba(15, 23, 42, 0.65);
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #020617; /* Slate 950 */
+        background-image: 
+          radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
+          radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+      }
+
+      .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
+
+      /* Custom Scrollbar for visible areas */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      /* Utilities */
+      .glass {
+        background: var(--glass-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--glass-border);
+      }
+      
+      .text-glow {
+        text-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+      }
+
+      @keyframes pulse-ring {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+      }
+      .animate-pulse-ring {
+        animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+  <body class="bg-slate-950 text-slate-100 overflow-hidden selection:bg-cyan-500/30">
+    <div id="root"></div>
+  </body>
+</html>

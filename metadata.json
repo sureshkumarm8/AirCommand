@@ -1,0 +1,7 @@
+{
+  "name": "iOS AirCommand AI",
+  "description": "Voice-controlled AI dashboard for managing multiple iOS devices wirelessly via script automation.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
