@@ -30,16 +30,16 @@ export const DeviceCard: React.FC<DeviceCardProps> = ({ device }) => {
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
             <div className={`
-                p-2.5 rounded-xl shadow-inner
+                p-2.5 rounded-xl shadow-inner flex items-center justify-center
                 ${isOnline ? 'bg-gradient-to-br from-slate-800 to-slate-900 text-cyan-400 ring-1 ring-white/10' : 'bg-slate-800 text-slate-600'}
             `}>
               <Smartphone size={18} />
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-white tracking-wide">{device.name}</h3>
-              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+              <h3 className="font-semibold text-sm text-white tracking-wide leading-tight">{device.name}</h3>
+              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-1">
                 <span>{device.model}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+                <span className="w-1 h-1 rounded-full bg-slate-600 inline-block"></span>
                 <span>{device.osVersion}</span>
               </div>
             </div>
